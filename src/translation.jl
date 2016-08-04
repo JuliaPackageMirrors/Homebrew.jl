@@ -126,7 +126,7 @@ function translate_formula(name::AbstractString; verbose::Bool=false)
 
     # Delete any older translated formula if they exist
     auto_path = joinpath(auto_tappath, "$(path).rb")
-    override_name = joinpath(auto_tapname, path)
+    override_name = joinpath(auto_tapname, path*"-juliatranslated")
     if isfile(auto_path)
         src_path = formula_path(name)
         if stat(auto_path).mtime < stat(src_path).mtime
@@ -145,6 +145,18 @@ function translate_formula(name::AbstractString; verbose::Bool=false)
     # Read formula source in, and also get a JSON representation of it
     obj = json(name)
     formula = read_formula(name)
+
+    # Find formula name and append Juliatranslated to it
+     m = match(r"\s*class\s*([^ ]+)\s+<\s+Formula\n", formula)
+    if m === nothing
+        # This shouldn't happen because every formula has a name!
+        warn("Couldn't find Formula name in $name")
+        return name
+    end
+    
+    # Append "Juliatranslated" to the name
+    offset = m.offsets[1] + length(m.captures[1])
+    formula = formula[1:offset-1] * "Juliatranslated" * formula[offset:end]
 
     # Find bottle section. We allow 1 to 8 lines of code in a bottle stanza:
     # a root_url, a prefix, a cellar, a revision, and four OSX version bottles.
@@ -198,7 +210,7 @@ function translate_formula(name::AbstractString; verbose::Bool=false)
             if verbose
                 println("translation: replacing dependency $dep_name because it's been translated before")
             end
-            new_name = "$(auto_tapname)/$(dep_name)"
+            new_name = "$(auto_tapname)/$(dep_name)-juliatranslated"
             offset = m.offsets[1]
 
             start_idx = offset-1+adjustment
